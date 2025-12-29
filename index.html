@@ -117,7 +117,12 @@
         
         textarea {
             resize: vertical;
-            min-height: 80px;
+            min-height: 120px;
+            line-height: 1.6;
+        }
+        
+        #markScheme {
+            min-height: 150px;
         }
         
         .tick-helper {
@@ -377,7 +382,6 @@
             <div class="button-group">
                 <button type="submit" class="btn-primary">Add Question</button>
                 <button type="button" class="btn-secondary" onclick="clearForm()">Clear Form</button>
-                <button type="button" class="btn-secondary" onclick="loadExistingQuestions()">↓ Load from GitHub</button>
             </div>
         </form>
         
@@ -572,14 +576,18 @@
                 return;
             }
             
+            // Remove line breaks from question and markScheme for code output
+            const questionText = document.getElementById('question').value.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+            const markSchemeText = document.getElementById('markScheme').value.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+            
             const question = {
                 id: newId,
                 section: section,
                 subtopic: subtopicFull,
                 marks: parseInt(document.getElementById('marks').value),
                 level: currentLevel,
-                question: document.getElementById('question').value,
-                markScheme: document.getElementById('markScheme').value
+                question: questionText,
+                markScheme: markSchemeText
             };
             
             questions.push(question);
@@ -595,14 +603,18 @@
             const subtopicFull = document.getElementById('subtopicFilter').value;
             const section = document.getElementById('sectionFilter').value;
             
+            // Remove line breaks from question and markScheme for code output
+            const questionText = document.getElementById('question').value.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+            const markSchemeText = document.getElementById('markScheme').value.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+            
             questions[index] = {
                 id: document.getElementById('id').value,
                 section: section,
                 subtopic: subtopicFull,
                 marks: parseInt(document.getElementById('marks').value),
                 level: currentLevel,
-                question: document.getElementById('question').value,
-                markScheme: document.getElementById('markScheme').value
+                question: questionText,
+                markScheme: markSchemeText
             };
             
             updateOutput();
@@ -745,40 +757,6 @@
             }).catch(err => {
                 alert('Failed to copy code. Please select and copy manually.');
             });
-        }
-        
-        function loadExistingQuestions() {
-            const loadBtn = event.target;
-            loadBtn.textContent = '⏳ Loading...';
-            loadBtn.disabled = true;
-            
-            fetch('https://raw.githubusercontent.com/JamieR7/sehsexam/refs/heads/main/allQuestions.js')
-                .then(response => response.text())
-                .then(data => {
-                    try {
-                        const match = data.match(/\[[\s\S]*\]/);
-                        if (match) {
-                            const questionsArray = eval(match[0]);
-                            questions = questionsArray;
-                            updateOutput();
-                            updateQuestionList();
-                            alert(`✓ Successfully loaded ${questions.length} existing questions from GitHub!`);
-                        } else {
-                            throw new Error('Could not find array in file');
-                        }
-                    } catch (err) {
-                        console.error('Could not parse questions:', err);
-                        alert('Could not parse the questions file. Check console for details.');
-                    }
-                })
-                .catch(err => {
-                    console.error('Could not load existing questions:', err);
-                    alert('Could not connect to GitHub. Check your internet connection or file URL.');
-                })
-                .finally(() => {
-                    loadBtn.textContent = '↓ Load from GitHub';
-                    loadBtn.disabled = false;
-                });
         }
     </script>
 </body>
