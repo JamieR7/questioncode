@@ -39,6 +39,35 @@
             font-size: 14px;
         }
         
+        .level-toggle {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            justify-content: center;
+        }
+        
+        .level-btn {
+            padding: 10px 30px;
+            border: 2px solid #667eea;
+            background: white;
+            color: #667eea;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        .level-btn.active {
+            background: #667eea;
+            color: white;
+        }
+        
+        .level-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+        
         .form-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -65,7 +94,7 @@
         input, select, textarea {
             padding: 10px 12px;
             border: 2px solid #e2e8f0;
-            border-radius: 6px;
+            border-radius: 8px;
             font-size: 14px;
             transition: all 0.3s;
             font-family: inherit;
@@ -75,6 +104,15 @@
             outline: none;
             border-color: #667eea;
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        input:disabled {
+            background: #f7fafc;
+            color: #718096;
+        }
+        
+        select:hover {
+            border-color: #667eea;
         }
         
         textarea {
@@ -220,6 +258,26 @@
         .btn-edit:hover {
             background: #3182ce;
         }
+        
+        .filter-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .auto-id-hint {
+            font-size: 12px;
+            color: #48bb78;
+            margin-top: 4px;
+            font-weight: 500;
+        }
+        
+        @media (max-width: 768px) {
+            .filter-grid {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
 <body>
@@ -228,28 +286,16 @@
         <p class="subtitle">Generate JavaScript objects for your IB Sports Exercise Health Science question bank</p>
         
         <form id="questionForm">
+            <div class="level-toggle">
+                <button type="button" class="level-btn active" data-level="SL" onclick="setLevel('SL')">Standard Level (SL)</button>
+                <button type="button" class="level-btn" data-level="HL" onclick="setLevel('HL')">Higher Level (HL)</button>
+            </div>
+
             <div class="form-grid">
                 <div class="form-group">
-                    <label for="id">Question ID *</label>
-                    <input type="text" id="id" placeholder="e.g., A001" required>
-                </div>
-                
-                <div class="form-group">
-                    <label for="section">Section *</label>
-                    <select id="section" required>
-                        <option value="">Select section</option>
-                        <option value="A">A - Anatomy</option>
-                        <option value="B">B - Exercise Physiology</option>
-                        <option value="C">C - Energy Systems</option>
-                        <option value="D">D - Movement Analysis</option>
-                        <option value="E">E - Skill in Sport</option>
-                        <option value="F">F - Measurement</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label for="subtopic">Subtopic *</label>
-                    <input type="text" id="subtopic" placeholder="e.g., A.1.1" required>
+                    <label for="id">Question ID * <span style="font-weight: 400; color: #718096;">(Auto-generated)</span></label>
+                    <input type="text" id="id" placeholder="Select section first..." disabled required>
+                    <div class="auto-id-hint" id="autoIdHint"></div>
                 </div>
                 
                 <div class="form-group">
@@ -258,23 +304,23 @@
                 </div>
                 
                 <div class="form-group">
-                    <label for="level">Level *</label>
-                    <select id="level" required>
-                        <option value="">Select level</option>
-                        <option value="SL">SL - Standard Level</option>
-                        <option value="HL">HL - Higher Level</option>
+                    <label for="sectionFilter">Section *</label>
+                    <select id="sectionFilter" required onchange="updateTopicsAndGenerateId()">
+                        <option value="">Select section</option>
                     </select>
                 </div>
                 
                 <div class="form-group">
-                    <label for="type">Question Type</label>
-                    <select id="type">
-                        <option value="">Not specified</option>
-                        <option value="explain">Explain</option>
-                        <option value="describe">Describe</option>
-                        <option value="discuss">Discuss</option>
-                        <option value="compare">Compare</option>
-                        <option value="analyze">Analyze</option>
+                    <label for="topicFilter">Topic *</label>
+                    <select id="topicFilter" required onchange="updateSubtopics()">
+                        <option value="">Select topic</option>
+                    </select>
+                </div>
+                
+                <div class="form-group full-width">
+                    <label for="subtopicFilter">Sub-topic *</label>
+                    <select id="subtopicFilter" required>
+                        <option value="">Select sub-topic</option>
                     </select>
                 </div>
                 
@@ -312,6 +358,127 @@
 
     <script>
         let questions = [];
+        let currentLevel = 'SL';
+        let isEditMode = false;
+        let editingId = null;
+        
+        const curriculum = {
+            "A": { 
+                "name": "Exercise physiology and nutrition",
+                "topics": {
+                    "A.1": { name: "Communication", subtopics: ["A.1.1 Inter-system communication", "A.1.2 Maintaining homeostasis", "A.1.3 Transport"] },
+                    "A.2": { name: "Hydration and nutrition", subtopics: ["A.2.1 Water and electrolyte balance", "A.2.2 Fuelling for health and performance", "A.2.3 Energy systems"] },
+                    "A.3": { name: "Response", subtopics: ["A.3.1 Qualities of training", "A.3.2 Benefits of health of being active", "A.3.3 Fatigue and recovery"] }
+                }
+            },
+            "B": { 
+                "name": "Biomechanics",
+                "topics": {
+                    "B.1": { name: "Generating movement in the body", subtopics: ["B.1.1 Anatomical position, planes and movement", "B.1.2 Structure and function of connective tissues and joints", "B.1.3 Muscular function", "B.1.4 Levers in movement and sport"] },
+                    "B.2": { name: "Forces, motion and movement", subtopics: ["B.2.1 Newton's laws of motion", "B.2.2 Fluid mechanics", "B.2.3 Movement analysis and its applications"] },
+                    "B.3": { name: "Injury", subtopics: ["B.3.1 Causes of injury", "B.3.2 Interventions related to injury"] }
+                }
+            },
+            "C": { 
+                "name": "Sports psychology and motor learning",
+                "topics": {
+                    "C.1": { name: "Individual differences", subtopics: ["C.1.1 Personality", "C.1.2 Mental toughness"] },
+                    "C.2": { name: "Motor learning", subtopics: ["C.2.1 Motor learning processes", "C.2.2 Attentional control"] },
+                    "C.3": { name: "Motivation", subtopics: ["C.3.1 Achievement motivation", "C.3.2 Self-determination", "C.3.3 Motivational climate"] },
+                    "C.4": { name: "Stress and coping", subtopics: ["C.4.1 Arousal and anxiety", "C.4.2 Coping"] },
+                    "C.5": { name: "Psychological skills", subtopics: ["C.5.1 Goal setting", "C.5.2 Imagery"] }
+                }
+            }
+        };
+
+        window.addEventListener('DOMContentLoaded', () => {
+            populateSections();
+        });
+
+        function populateSections() {
+            const sectionFilter = document.getElementById('sectionFilter');
+            Object.keys(curriculum).forEach(section => {
+                const option = document.createElement('option');
+                option.value = section;
+                option.textContent = section + ' - ' + curriculum[section].name;
+                sectionFilter.appendChild(option);
+            });
+        }
+
+        function generateNextQuestionId(section) {
+            // Find all questions in this section
+            const sectionQuestions = questions.filter(q => q.section === section);
+            
+            if (sectionQuestions.length === 0) {
+                return section + '001';
+            }
+            
+            // Extract numeric parts and find the highest
+            const numbers = sectionQuestions.map(q => {
+                const match = q.id.match(/[A-Z](\d+)/);
+                return match ? parseInt(match[1]) : 0;
+            });
+            
+            const maxNumber = Math.max(...numbers);
+            const nextNumber = maxNumber + 1;
+            
+            // Format with leading zeros (3 digits)
+            return section + String(nextNumber).padStart(3, '0');
+        }
+
+        function updateTopicsAndGenerateId() {
+            updateTopics();
+            
+            const section = document.getElementById('sectionFilter').value;
+            if (section && !isEditMode) {
+                const nextId = generateNextQuestionId(section);
+                document.getElementById('id').value = nextId;
+                document.getElementById('autoIdHint').textContent = `✓ Next available: ${nextId}`;
+            }
+        }
+
+        function updateTopics() {
+            const section = document.getElementById('sectionFilter').value;
+            const topicFilter = document.getElementById('topicFilter');
+            const subtopicFilter = document.getElementById('subtopicFilter');
+            
+            topicFilter.innerHTML = '<option value="">Select topic</option>';
+            subtopicFilter.innerHTML = '<option value="">Select sub-topic</option>';
+
+            if (!section) return;
+
+            const topics = curriculum[section]?.topics || {};
+            Object.keys(topics).forEach(topicCode => {
+                const option = document.createElement('option');
+                option.value = topicCode;
+                option.textContent = topicCode + ' - ' + topics[topicCode].name;
+                topicFilter.appendChild(option);
+            });
+        }
+
+        function updateSubtopics() {
+            const section = document.getElementById('sectionFilter').value;
+            const topic = document.getElementById('topicFilter').value;
+            const subtopicFilter = document.getElementById('subtopicFilter');
+            
+            subtopicFilter.innerHTML = '<option value="">Select sub-topic</option>';
+
+            if (!topic) return;
+
+            const subtopics = curriculum[section]?.topics[topic]?.subtopics || [];
+            subtopics.forEach(subtopic => {
+                const option = document.createElement('option');
+                option.value = subtopic;
+                option.textContent = subtopic;
+                subtopicFilter.appendChild(option);
+            });
+        }
+
+        function setLevel(level) {
+            currentLevel = level;
+            document.querySelectorAll('.level-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+        }
         
         document.getElementById('questionForm').addEventListener('submit', function(e) {
             e.preventDefault();
@@ -320,11 +487,18 @@
         
         function addQuestion() {
             const newId = document.getElementById('id').value;
+            const subtopicFull = document.getElementById('subtopicFilter').value;
+            const section = document.getElementById('sectionFilter').value;
             
-            // Check for duplicate ID
+            if (!subtopicFull) {
+                alert('Please select a sub-topic');
+                return;
+            }
+            
+            // Check for duplicate ID (unless in edit mode with same ID)
             const existingQuestion = questions.find(q => q.id === newId);
             
-            if (existingQuestion) {
+            if (existingQuestion && !(isEditMode && editingId === newId)) {
                 const update = confirm(
                     `Question ID "${newId}" already exists!\n\n` +
                     `Existing: ${existingQuestion.question.substring(0, 60)}...\n\n` +
@@ -334,7 +508,6 @@
                 if (update) {
                     updateQuestion(newId);
                 } else {
-                    // Highlight the ID field to show where the duplicate is
                     const idField = document.getElementById('id');
                     idField.style.borderColor = '#fc8181';
                     idField.style.background = '#fff5f5';
@@ -346,49 +519,44 @@
                 return;
             }
             
+            if (isEditMode) {
+                updateQuestion(editingId);
+                return;
+            }
+            
             // Add new question
             const question = {
                 id: newId,
-                section: document.getElementById('section').value,
-                subtopic: document.getElementById('subtopic').value,
+                section: section,
+                subtopic: subtopicFull,
                 marks: parseInt(document.getElementById('marks').value),
-                level: document.getElementById('level').value,
+                level: currentLevel,
                 question: document.getElementById('question').value,
                 markScheme: document.getElementById('markScheme').value
             };
-            
-            // Add type if specified
-            const type = document.getElementById('type').value;
-            if (type) {
-                question.type = type;
-            }
             
             questions.push(question);
             updateOutput();
             updateQuestionList();
             clearForm();
             
-            // Show success feedback
             showSuccess('✓ Added!');
         }
         
         function updateQuestion(id) {
             const index = questions.findIndex(q => q.id === id);
+            const subtopicFull = document.getElementById('subtopicFilter').value;
+            const section = document.getElementById('sectionFilter').value;
             
             questions[index] = {
-                id: id,
-                section: document.getElementById('section').value,
-                subtopic: document.getElementById('subtopic').value,
+                id: document.getElementById('id').value,
+                section: section,
+                subtopic: subtopicFull,
                 marks: parseInt(document.getElementById('marks').value),
-                level: document.getElementById('level').value,
+                level: currentLevel,
                 question: document.getElementById('question').value,
                 markScheme: document.getElementById('markScheme').value
             };
-            
-            const type = document.getElementById('type').value;
-            if (type) {
-                questions[index].type = type;
-            }
             
             updateOutput();
             updateQuestionList();
@@ -412,11 +580,7 @@
         function updateOutput() {
             const output = document.getElementById('output');
             const code = questions.map(q => {
-                let obj = `{id: "${q.id}", section: "${q.section}", subtopic: "${q.subtopic}", marks: ${q.marks}, level: "${q.level}"`;
-                if (q.type) {
-                    obj += `, type: "${q.type}"`;
-                }
-                obj += `, question: "${q.question}", markScheme: "${q.markScheme}"}`;
+                let obj = `{id: "${q.id}", section: "${q.section}", subtopic: "${q.subtopic}", marks: ${q.marks}, level: "${q.level}", question: "${q.question}", markScheme: "${q.markScheme}"}`;
                 return obj;
             }).join(',\n');
             
@@ -447,14 +611,38 @@
         
         function editQuestion(index) {
             const q = questions[index];
+            
+            isEditMode = true;
+            editingId = q.id;
+            
+            // Set level
+            currentLevel = q.level;
+            document.querySelectorAll('.level-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.getAttribute('data-level') === q.level);
+            });
+            
+            // Set section first
+            document.getElementById('sectionFilter').value = q.section;
+            updateTopics();
+            
+            // Extract topic from subtopic (e.g., "A.1.1" -> "A.1")
+            const topicCode = q.subtopic.split('.').slice(0, 2).join('.');
+            document.getElementById('topicFilter').value = topicCode;
+            updateSubtopics();
+            
+            // Set subtopic
+            document.getElementById('subtopicFilter').value = q.subtopic;
+            
+            // Set other fields
             document.getElementById('id').value = q.id;
-            document.getElementById('section').value = q.section;
-            document.getElementById('subtopic').value = q.subtopic;
+            document.getElementById('id').disabled = false;
             document.getElementById('marks').value = q.marks;
-            document.getElementById('level').value = q.level;
-            document.getElementById('type').value = q.type || '';
             document.getElementById('question').value = q.question;
             document.getElementById('markScheme').value = q.markScheme;
+            document.getElementById('autoIdHint').textContent = '✏️ Editing existing question';
+            
+            // Update button text
+            document.querySelector('.btn-primary').textContent = 'Update Question';
             
             // Scroll to form
             document.getElementById('questionForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -478,7 +666,18 @@
         
         function clearForm() {
             document.getElementById('questionForm').reset();
-            document.getElementById('id').focus();
+            document.getElementById('id').value = '';
+            document.getElementById('id').disabled = true;
+            document.getElementById('autoIdHint').textContent = '';
+            document.querySelector('.btn-primary').textContent = 'Add Question';
+            isEditMode = false;
+            editingId = null;
+            
+            // Reset level to SL
+            currentLevel = 'SL';
+            document.querySelectorAll('.level-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.getAttribute('data-level') === 'SL');
+            });
         }
         
         function copyCode() {
@@ -511,17 +710,12 @@
             fetch('https://raw.githubusercontent.com/JamieR7/sehsexam/refs/heads/main/allQuestions.js')
                 .then(response => response.text())
                 .then(data => {
-                    // Extract the array from the JavaScript file
                     try {
-                        // Remove any variable declarations and get just the array
+                        // Extract the array from the JavaScript file
                         const match = data.match(/\[[\s\S]*\]/);
                         if (match) {
-                            // Replace single quotes with double quotes for JSON parsing
-                            const jsonString = match[0]
-                                .replace(/(\w+):/g, '"$1":')  // Add quotes around keys
-                                .replace(/:\s*'([^']*)'/g, ': "$1"');  // Replace single quotes with double
-                            
-                            const questionsArray = JSON.parse(jsonString);
+                            // Use eval in a safe way to parse the JavaScript array
+                            const questionsArray = eval(match[0]);
                             questions = questionsArray;
                             updateOutput();
                             updateQuestionList();
@@ -546,4 +740,3 @@
     </script>
 </body>
 </html>
-
