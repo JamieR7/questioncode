@@ -39,6 +39,33 @@
             font-size: 14px;
         }
         
+        .info-banner {
+            background: #e3f2fd;
+            border-left: 4px solid #2196F3;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            color: #1565c0;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        
+        .info-banner strong {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 15px;
+        }
+        
+        .info-banner a {
+            color: #1565c0;
+            font-weight: 600;
+            text-decoration: underline;
+        }
+        
+        .info-banner a:hover {
+            color: #0d47a1;
+        }
+        
         .level-toggle {
             display: flex;
             gap: 10px;
@@ -196,6 +223,16 @@
             background: #cbd5e0;
         }
         
+        .btn-form-link {
+            background: #2196F3;
+            color: white;
+        }
+        
+        .btn-form-link:hover {
+            background: #1976D2;
+            transform: translateY(-2px);
+        }
+        
         .output-section {
             margin-top: 30px;
             padding-top: 30px;
@@ -323,7 +360,12 @@
 <body>
     <div class="container">
         <h1>IB SEHS Question Generator</h1>
-        <p class="subtitle">Generate JavaScript objects for your IB Sports Exercise Health Science question bank</p>
+        <p class="subtitle">Generate JavaScript code for your IB Sports Exercise Health Science question bank</p>
+        
+        <div class="info-banner">
+            <strong>📝 Next Step: Submit to Question Bank</strong>
+            After generating your code below, submit it using the <a href="https://forms.office.com/e/krFdz59xdG" target="_blank">JS Code Submission Form</a> to add it to the exam site.
+        </div>
         
         <form id="questionForm">
             <div class="level-toggle">
@@ -380,8 +422,9 @@
             </div>
             
             <div class="button-group">
-                <button type="submit" class="btn-primary">Add Question</button>
+                <button type="submit" class="btn-primary">Generate Code</button>
                 <button type="button" class="btn-secondary" onclick="clearForm()">Clear Form</button>
+                <button type="button" class="btn-form-link" onclick="openSubmissionForm()">📋 Open Submission Form</button>
             </div>
         </form>
         
@@ -392,7 +435,7 @@
             </div>
             
             <div id="questionList" class="question-list">
-                <div class="empty-state">No questions added yet. Fill out the form above to generate code.</div>
+                <div class="empty-state">No questions generated yet. Fill out the form above to create JavaScript code.</div>
             </div>
             
             <pre id="output"><code>// Your generated code will appear here...</code></pre>
@@ -533,6 +576,10 @@
             });
         }
         
+        function openSubmissionForm() {
+            window.open('https://forms.office.com/e/krFdz59xdG', '_blank');
+        }
+        
         document.getElementById('questionForm').addEventListener('submit', function(e) {
             e.preventDefault();
             addQuestion();
@@ -595,7 +642,7 @@
             updateQuestionList();
             clearForm();
             
-            showSuccess('✓ Added!');
+            showSuccess('✓ Code Generated!');
         }
         
         function updateQuestion(id) {
@@ -658,7 +705,7 @@
             const listDiv = document.getElementById('questionList');
             
             if (questions.length === 0) {
-                listDiv.innerHTML = '<div class="empty-state">No questions added yet. Fill out the form above to generate code.</div>';
+                listDiv.innerHTML = '<div class="empty-state">No questions generated yet. Fill out the form above to create JavaScript code.</div>';
                 return;
             }
             
@@ -703,7 +750,7 @@
             document.getElementById('markScheme').value = q.markScheme;
             document.getElementById('autoIdHint').textContent = '✏️ Editing existing question';
             
-            document.querySelector('.btn-primary').textContent = 'Update Question';
+            document.querySelector('.btn-primary').textContent = 'Update Code';
             
             document.getElementById('questionForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
             
@@ -728,7 +775,7 @@
             document.getElementById('id').value = '';
             document.getElementById('id').disabled = true;
             document.getElementById('autoIdHint').textContent = '';
-            document.querySelector('.btn-primary').textContent = 'Add Question';
+            document.querySelector('.btn-primary').textContent = 'Generate Code';
             isEditMode = false;
             editingId = null;
             
