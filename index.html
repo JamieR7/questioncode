@@ -120,6 +120,39 @@
             min-height: 80px;
         }
         
+        .tick-helper {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 12px 15px;
+            margin-top: 8px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+        }
+        
+        .tick-symbol {
+            background: white;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 2px solid #ffc107;
+            font-weight: bold;
+        }
+        
+        .tick-symbol:hover {
+            background: #ffc107;
+            transform: scale(1.1);
+        }
+        
+        .tick-helper-text {
+            color: #856404;
+            flex: 1;
+        }
+        
         .button-group {
             display: flex;
             gap: 12px;
@@ -200,6 +233,8 @@
             font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
             font-size: 13px;
             line-height: 1.6;
+            white-space: pre-wrap;
+            word-wrap: break-word;
         }
         
         .question-list {
@@ -330,8 +365,12 @@
                 </div>
                 
                 <div class="form-group full-width">
-                    <label for="markScheme">Mark Scheme *</label>
+                    <label for="markScheme">Mark Scheme * <span style="font-weight: 400; color: #718096;">Separate each point with a ✔</span></label>
                     <textarea id="markScheme" placeholder="Enter mark scheme points separated by ✔ symbols..." required></textarea>
+                    <div class="tick-helper">
+                        <div class="tick-symbol" onclick="copyTick()" title="Click to copy">✔</div>
+                        <div class="tick-helper-text">Click the tick to copy it, then paste between each mark scheme point</div>
+                    </div>
                 </div>
             </div>
             
@@ -406,14 +445,12 @@
         }
 
         function generateNextQuestionId(section) {
-            // Find all questions in this section
             const sectionQuestions = questions.filter(q => q.section === section);
             
             if (sectionQuestions.length === 0) {
                 return section + '001';
             }
             
-            // Extract numeric parts and find the highest
             const numbers = sectionQuestions.map(q => {
                 const match = q.id.match(/[A-Z](\d+)/);
                 return match ? parseInt(match[1]) : 0;
@@ -422,7 +459,6 @@
             const maxNumber = Math.max(...numbers);
             const nextNumber = maxNumber + 1;
             
-            // Format with leading zeros (3 digits)
             return section + String(nextNumber).padStart(3, '0');
         }
 
@@ -480,6 +516,19 @@
             event.target.classList.add('active');
         }
         
+        function copyTick() {
+            navigator.clipboard.writeText('✔').then(() => {
+                const tickSymbol = document.querySelector('.tick-symbol');
+                const originalBg = tickSymbol.style.background;
+                tickSymbol.style.background = '#48bb78';
+                tickSymbol.style.color = 'white';
+                setTimeout(() => {
+                    tickSymbol.style.background = originalBg;
+                    tickSymbol.style.color = '';
+                }, 1000);
+            });
+        }
+        
         document.getElementById('questionForm').addEventListener('submit', function(e) {
             e.preventDefault();
             addQuestion();
@@ -495,7 +544,6 @@
                 return;
             }
             
-            // Check for duplicate ID (unless in edit mode with same ID)
             const existingQuestion = questions.find(q => q.id === newId);
             
             if (existingQuestion && !(isEditMode && editingId === newId)) {
@@ -524,7 +572,6 @@
                 return;
             }
             
-            // Add new question
             const question = {
                 id: newId,
                 section: section,
@@ -579,12 +626,20 @@
         
         function updateOutput() {
             const output = document.getElementById('output');
-            const code = questions.map(q => {
-                let obj = `{id: "${q.id}", section: "${q.section}", subtopic: "${q.subtopic}", marks: ${q.marks}, level: "${q.level}", question: "${q.question}", markScheme: "${q.markScheme}"}`;
-                return obj;
-            }).join(',\n');
             
-            output.innerHTML = `<code>${code || '// Your generated code will appear here...'}</code>`;
+            if (questions.length === 0) {
+                output.innerHTML = '<code>// Your generated code will appear here...</code>';
+                return;
+            }
+            
+            // Format as single-line objects, wrapped in array
+            const code = 'const allQuestions = [\n' + 
+                questions.map(q => {
+                    return `    {id: "${q.id}", section: "${q.section}", subtopic: "${q.subtopic}", marks: ${q.marks}, level: "${q.level}", question: "${q.question}", markScheme: "${q.markScheme}"}`;
+                }).join(',\n') + 
+                '\n];';
+            
+            output.innerHTML = `<code>${code}</code>`;
         }
         
         function updateQuestionList() {
@@ -615,25 +670,20 @@
             isEditMode = true;
             editingId = q.id;
             
-            // Set level
             currentLevel = q.level;
             document.querySelectorAll('.level-btn').forEach(btn => {
                 btn.classList.toggle('active', btn.getAttribute('data-level') === q.level);
             });
             
-            // Set section first
             document.getElementById('sectionFilter').value = q.section;
             updateTopics();
             
-            // Extract topic from subtopic (e.g., "A.1.1" -> "A.1")
             const topicCode = q.subtopic.split('.').slice(0, 2).join('.');
             document.getElementById('topicFilter').value = topicCode;
             updateSubtopics();
             
-            // Set subtopic
             document.getElementById('subtopicFilter').value = q.subtopic;
             
-            // Set other fields
             document.getElementById('id').value = q.id;
             document.getElementById('id').disabled = false;
             document.getElementById('marks').value = q.marks;
@@ -641,13 +691,10 @@
             document.getElementById('markScheme').value = q.markScheme;
             document.getElementById('autoIdHint').textContent = '✏️ Editing existing question';
             
-            // Update button text
             document.querySelector('.btn-primary').textContent = 'Update Question';
             
-            // Scroll to form
             document.getElementById('questionForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
             
-            // Highlight the form
             const form = document.getElementById('questionForm');
             form.style.background = '#fef5e7';
             setTimeout(() => {
@@ -673,7 +720,6 @@
             isEditMode = false;
             editingId = null;
             
-            // Reset level to SL
             currentLevel = 'SL';
             document.querySelectorAll('.level-btn').forEach(btn => {
                 btn.classList.toggle('active', btn.getAttribute('data-level') === 'SL');
@@ -701,7 +747,6 @@
             });
         }
         
-        // Load existing questions from GitHub
         function loadExistingQuestions() {
             const loadBtn = event.target;
             loadBtn.textContent = '⏳ Loading...';
@@ -711,10 +756,8 @@
                 .then(response => response.text())
                 .then(data => {
                     try {
-                        // Extract the array from the JavaScript file
                         const match = data.match(/\[[\s\S]*\]/);
                         if (match) {
-                            // Use eval in a safe way to parse the JavaScript array
                             const questionsArray = eval(match[0]);
                             questions = questionsArray;
                             updateOutput();
