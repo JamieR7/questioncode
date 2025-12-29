@@ -208,6 +208,18 @@
             padding: 40px;
             font-style: italic;
         }
+        
+        .btn-edit {
+            background: #4299e1;
+            color: white;
+            padding: 6px 12px;
+            font-size: 12px;
+            margin-right: 6px;
+        }
+        
+        .btn-edit:hover {
+            background: #3182ce;
+        }
     </style>
 </head>
 <body>
@@ -280,6 +292,7 @@
             <div class="button-group">
                 <button type="submit" class="btn-primary">Add Question</button>
                 <button type="button" class="btn-secondary" onclick="clearForm()">Clear Form</button>
+                <button type="button" class="btn-secondary" onclick="loadExistingQuestions()">↓ Load from GitHub</button>
             </div>
         </form>
         
@@ -306,8 +319,36 @@
         });
         
         function addQuestion() {
+            const newId = document.getElementById('id').value;
+            
+            // Check for duplicate ID
+            const existingQuestion = questions.find(q => q.id === newId);
+            
+            if (existingQuestion) {
+                const update = confirm(
+                    `Question ID "${newId}" already exists!\n\n` +
+                    `Existing: ${existingQuestion.question.substring(0, 60)}...\n\n` +
+                    `Click OK to UPDATE the existing question, or Cancel to go back.`
+                );
+                
+                if (update) {
+                    updateQuestion(newId);
+                } else {
+                    // Highlight the ID field to show where the duplicate is
+                    const idField = document.getElementById('id');
+                    idField.style.borderColor = '#fc8181';
+                    idField.style.background = '#fff5f5';
+                    setTimeout(() => {
+                        idField.style.borderColor = '';
+                        idField.style.background = '';
+                    }, 2000);
+                }
+                return;
+            }
+            
+            // Add new question
             const question = {
-                id: document.getElementById('id').value,
+                id: newId,
                 section: document.getElementById('section').value,
                 subtopic: document.getElementById('subtopic').value,
                 marks: parseInt(document.getElementById('marks').value),
@@ -328,13 +369,43 @@
             clearForm();
             
             // Show success feedback
+            showSuccess('✓ Added!');
+        }
+        
+        function updateQuestion(id) {
+            const index = questions.findIndex(q => q.id === id);
+            
+            questions[index] = {
+                id: id,
+                section: document.getElementById('section').value,
+                subtopic: document.getElementById('subtopic').value,
+                marks: parseInt(document.getElementById('marks').value),
+                level: document.getElementById('level').value,
+                question: document.getElementById('question').value,
+                markScheme: document.getElementById('markScheme').value
+            };
+            
+            const type = document.getElementById('type').value;
+            if (type) {
+                questions[index].type = type;
+            }
+            
+            updateOutput();
+            updateQuestionList();
+            clearForm();
+            
+            showSuccess('✓ Updated!', '#48bb78');
+        }
+        
+        function showSuccess(message, color = '#48bb78') {
             const btn = document.querySelector('.btn-primary');
             const originalText = btn.textContent;
-            btn.textContent = '✓ Added!';
-            btn.style.background = '#48bb78';
+            const originalBg = btn.style.background;
+            btn.textContent = message;
+            btn.style.background = color;
             setTimeout(() => {
                 btn.textContent = originalText;
-                btn.style.background = '';
+                btn.style.background = originalBg;
             }, 1500);
         }
         
@@ -366,15 +437,43 @@
                         <span class="question-id">${q.id}</span>
                         <span>${q.subtopic} | ${q.level} | ${q.marks} marks</span>
                     </div>
-                    <button class="btn-remove" onclick="removeQuestion(${index})">Remove</button>
+                    <div>
+                        <button class="btn-edit" onclick="editQuestion(${index})">Edit</button>
+                        <button class="btn-remove" onclick="removeQuestion(${index})">Remove</button>
+                    </div>
                 </div>
             `).join('');
         }
         
+        function editQuestion(index) {
+            const q = questions[index];
+            document.getElementById('id').value = q.id;
+            document.getElementById('section').value = q.section;
+            document.getElementById('subtopic').value = q.subtopic;
+            document.getElementById('marks').value = q.marks;
+            document.getElementById('level').value = q.level;
+            document.getElementById('type').value = q.type || '';
+            document.getElementById('question').value = q.question;
+            document.getElementById('markScheme').value = q.markScheme;
+            
+            // Scroll to form
+            document.getElementById('questionForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            
+            // Highlight the form
+            const form = document.getElementById('questionForm');
+            form.style.background = '#fef5e7';
+            setTimeout(() => {
+                form.style.background = '';
+            }, 2000);
+        }
+        
         function removeQuestion(index) {
-            questions.splice(index, 1);
-            updateOutput();
-            updateQuestionList();
+            const q = questions[index];
+            if (confirm(`Remove question ${q.id}?`)) {
+                questions.splice(index, 1);
+                updateOutput();
+                updateQuestionList();
+            }
         }
         
         function clearForm() {
@@ -402,6 +501,49 @@
                 alert('Failed to copy code. Please select and copy manually.');
             });
         }
+        
+        // Load existing questions from GitHub
+        function loadExistingQuestions() {
+            const loadBtn = event.target;
+            loadBtn.textContent = '⏳ Loading...';
+            loadBtn.disabled = true;
+            
+            fetch('https://raw.githubusercontent.com/JamieR7/sehsexam/refs/heads/main/allQuestions.js')
+                .then(response => response.text())
+                .then(data => {
+                    // Extract the array from the JavaScript file
+                    try {
+                        // Remove any variable declarations and get just the array
+                        const match = data.match(/\[[\s\S]*\]/);
+                        if (match) {
+                            // Replace single quotes with double quotes for JSON parsing
+                            const jsonString = match[0]
+                                .replace(/(\w+):/g, '"$1":')  // Add quotes around keys
+                                .replace(/:\s*'([^']*)'/g, ': "$1"');  // Replace single quotes with double
+                            
+                            const questionsArray = JSON.parse(jsonString);
+                            questions = questionsArray;
+                            updateOutput();
+                            updateQuestionList();
+                            alert(`✓ Successfully loaded ${questions.length} existing questions from GitHub!`);
+                        } else {
+                            throw new Error('Could not find array in file');
+                        }
+                    } catch (err) {
+                        console.error('Could not parse questions:', err);
+                        alert('Could not parse the questions file. Check console for details.');
+                    }
+                })
+                .catch(err => {
+                    console.error('Could not load existing questions:', err);
+                    alert('Could not connect to GitHub. Check your internet connection or file URL.');
+                })
+                .finally(() => {
+                    loadBtn.textContent = '↓ Load from GitHub';
+                    loadBtn.disabled = false;
+                });
+        }
     </script>
 </body>
 </html>
+
